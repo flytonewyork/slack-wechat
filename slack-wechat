@@ -1,0 +1,48 @@
+import { WebClient } from "@slack/web-api";
+import { createServer } from "http";
+import { parse } from "url";
+import { WeChat } from "wechaty";
+
+const SLACK_BOT_TOKEN = "your_slack_bot_token";
+const WECHAT_GROUP = "Box Hill WYP Dental";
+const SLACK_CHANNEL = "your_slack_channel_id";
+
+const slack = new WebClient(SLACK_BOT_TOKEN);
+const wechat = new WeChat();
+
+wechat.start().then(() => {
+  console.log("WeChat bot started");
+});
+
+wechat.on("message", async (message) => {
+  if (message.room()?.topic() === WECHAT_GROUP) {
+    const sender = await message.from();
+    const content = message.text();
+    await slack.chat.postMessage({
+      channel: SLACK_CHANNEL,
+      text: `[WeChat: ${sender.name()}] ${content}`,
+    });
+  }
+});
+
+const server = createServer(async (req, res) => {
+  const { query } = parse(req.url, true);
+  const { user, text, voice } = query;
+
+  if (text || voice) {
+    const group = await wechat.Room.find({ topic: WECHAT_GROUP });
+
+    if (text) {
+      await group.say(`[Slack: ${user}] ${text}`);
+    } else {
+      // Implement voice-to-text conversion and send the text message
+    }
+  }
+
+  res.writeHead(200, { "Content-Type": "text/plain" });
+  res.end("OK");
+});
+
+server.listen(3000, () => {
+  console.log("Server listening on port 3000");
+});
